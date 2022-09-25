@@ -20,7 +20,7 @@ reverse_dictionary = create_reverse_dictionary(dictionary)
 
 def sent2matrix(sentence, dictionary):
     words = sentence.split()
-    m = np.int32(np.zeros((1, len(words)))) 
+    m = np.int32(np.zeros((1, len(words))))
 
     for i in xrange(len(words)):
         m[0,i] = dictionary[words[i]]
@@ -36,7 +36,7 @@ def matrix2sent(matrix, reverse_dictionary):
 
 def create_2digit_mnist_image_leftright(digit1, digit2):
     """ Digits is list of numpy arrays, where each array is a digit"""
-    
+
     image = np.zeros((60,60))
     digit1 = digit1.reshape(28,28)
     digit2 = digit2.reshape(28,28)
@@ -54,7 +54,7 @@ def create_2digit_mnist_image_leftright(digit1, digit2):
 
 def create_2digit_mnist_image_topbottom(digit1, digit2):
     """ Digits is list of numpy arrays, where each array is a digit"""
-    
+
     image = np.zeros((60,60))
     digit1 = digit1.reshape(28,28)
     digit2 = digit2.reshape(28,28)
@@ -72,7 +72,7 @@ def create_2digit_mnist_image_topbottom(digit1, digit2):
 
 def create_1digit_mnist_image_topleft(digit1):
     """ Digits is list of numpy arrays, where each array is a digit"""
-    
+
     image = np.zeros((60,60))
     digit1 = digit1.reshape(28,28)
 
@@ -86,7 +86,7 @@ def create_1digit_mnist_image_topleft(digit1):
 
 def create_1digit_mnist_image_topright(digit1):
     """ Digits is list of numpy arrays, where each array is a digit"""
-    
+
     image = np.zeros((60,60))
     digit1 = digit1.reshape(28,28)
 
@@ -100,7 +100,7 @@ def create_1digit_mnist_image_topright(digit1):
 
 def create_1digit_mnist_image_bottomright(digit1):
     """ Digits is list of numpy arrays, where each array is a digit"""
-    
+
     image = np.zeros((60,60))
     digit1 = digit1.reshape(28,28)
 
@@ -114,7 +114,7 @@ def create_1digit_mnist_image_bottomright(digit1):
 
 def create_1digit_mnist_image_bottomleft(digit1):
     """ Digits is list of numpy arrays, where each array is a digit"""
-    
+
     image = np.zeros((60,60))
     digit1 = digit1.reshape(28,28)
 
@@ -128,9 +128,11 @@ def create_1digit_mnist_image_bottomleft(digit1):
 
 
 def create_mnist_captions_dataset(data, labels, banned, num=10000):
+    # print("DEBUG:", data, labels)
     images = np.zeros((num,60*60))
+    # print("DEBUG:", images.dtype)
     captions = np.zeros((num,12))
-    
+
     counts = [0, 0, 0, 0, 0, 0, 0, 0]
 
     curr_num = 0
@@ -190,11 +192,11 @@ def create_mnist_captions_dataset(data, labels, banned, num=10000):
         if curr_num == num:
             break
 
-    return np.float32(images), np.int32(captions), counts
+    return np.float64(images), np.int32(captions), counts
 
 if __name__ == '__main__':
-    data = np.copy(h5py.File('/ais/gobi3/u/nitish/mnist/mnist.h5', 'r')["train"])
-    labels = np.copy(h5py.File('/ais/gobi3/u/nitish/mnist/mnist.h5', 'r')["train_labels"])
+    data = np.copy(h5py.File('/Users/school/Documents/text2image/mnist-captions/data/mnist.h5', 'r')["train"])
+    labels = np.copy(h5py.File('/Users/school/Documents/text2image/mnist-captions/data/mnist.h5', 'r')["train_labels"])
 
     image = create_1digit_mnist_image_topright(data[327,:])
     pylab.figure()

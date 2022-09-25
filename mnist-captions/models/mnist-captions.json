@@ -15,8 +15,8 @@
     ],
 
     "validateAfter": 3,
-    "save": false,
-    "savedir": "/nobackup_b/emansim/variational-weights",
+    "save": true,
+    "savedir": "/Users/school/Documents/text2image/mnist-captions/output",
     "lr": 0.001,
     "epochs": 1000,
     "batch_size": 100,
@@ -25,19 +25,19 @@
     "data": {
         "train_data": {
             "key": "train",
-            "file": "/ais/gobi3/u/nitish/mnist/mnist.h5"
+            "file": "/Users/school/Documents/text2image/mnist-captions/data/mnist.h5"
         },
         "train_labels": {
             "key": "train_labels",
-            "file": "/ais/gobi3/u/nitish/mnist/mnist.h5"
+            "file": "/Users/school/Documents/text2image/mnist-captions/data/mnist.h5"
         },
         "validation_data": {
             "key": "validation",
-            "file": "/ais/gobi3/u/nitish/mnist/mnist.h5"
+            "file": "/Users/school/Documents/text2image/mnist-captions/data/mnist.h5"
         },
         "validation_labels": {
             "key": "validation_labels",
-            "file": "/ais/gobi3/u/nitish/mnist/mnist.h5"
+            "file": "/Users/school/Documents/text2image/mnist-captions/data/mnist.h5"
         }
     }
 }

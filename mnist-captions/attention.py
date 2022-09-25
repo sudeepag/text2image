@@ -14,7 +14,7 @@ class SelectiveAttentionModel(object):
         '''Matrix1 has dimension dim1 x dim2 x dim3 ; Matrix2 has dimension dim1 x dim3 x dim4
         Result is dim1 x dim2 x dim4'''
 
-        matrix3 = matrix1.dimshuffle([0,1,2,'x']) * matrix2.dimshuffle([0,'x',1,2])      
+        matrix3 = matrix1.dimshuffle([0,1,2,'x']) * matrix2.dimshuffle([0,'x',1,2])
         return matrix3.sum(axis=2)
 
     def matrix2att(self, matrix):

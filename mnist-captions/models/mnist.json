@@ -18,11 +18,11 @@
 	"data": {
 	   "train": {
 		  "key": "train",
-		  "file": "/ais/gobi3/u/nitish/mnist/mnist.h5"
+		  "file": "/Users/school/Documents/text2image/mnist-captions/data/mnist.h5"
 	   },
 	   "validation": {
 		  "key": "validation",
-		  "file": "/ais/gobi3/u/nitish/mnist/mnist.h5"
+		  "file": "/Users/school/Documents/text2image/mnist-captions/data/mnist.h5"
 	   }
     }
 }

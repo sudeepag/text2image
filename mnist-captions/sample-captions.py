@@ -11,6 +11,10 @@ import math
 import cPickle as pickle
 from PIL import Image
 import math
+from argparse import ArgumentParser
+
+import matplotlib as mpl
+mpl.use('TkAgg')
 
 #np.random.seed(np.random.randint(1 << 30))
 #rng = RandomStreams(seed=np.random.randint(1 << 30))
@@ -25,7 +29,7 @@ dictionary = {'0':0, '1':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9'
 
 def sent2matrix(sentence, dictionary):
     words = sentence.split()
-    m = np.int32(np.zeros((1, len(words)))) 
+    m = np.int32(np.zeros((1, len(words))))
 
     for i in xrange(len(words)):
         m[0,i] = dictionary[words[i]]
@@ -66,12 +70,12 @@ if __name__ == '__main__':
     epochs = int(model["epochs"])
     batch_size = int(model["batch_size"])
     reduceLRAfter = int(model["reduceLRAfter"])
-    
+
     data = np.copy(h5py.File(model["data"]["train_data"]["file"], 'r')[model["data"]["train_data"]["key"]])
     labels = np.copy(h5py.File(model["data"]["train_labels"]["file"], 'r')[model["data"]["train_labels"]["key"]])
 
-    sentence = "the digit 1 is on the left of the digit 0 ."
-    
+    sentence = "the digit 4 is on the left of the digit 8"
+
     y, words = sent2matrix(sentence, dictionary)
     y = np.int32(np.repeat(y, 100, axis=0))
     print y.shape
@@ -88,8 +92,8 @@ if __name__ == '__main__':
 
     dimension = int(math.sqrt(dimX))
     print dimension, dimension
-    
-    most_used = np.float32(np.zeros((y.shape[1])))
+
+    most_used = np.float64(np.zeros((y.shape[1])))
 
     for i in xrange(runSteps):
         total_image = np.zeros((dimension*10,dimension*10))
@@ -98,9 +102,9 @@ if __name__ == '__main__':
             c = ct_s[i,j,:].reshape([dimension,dimension])
             row = j/10
             column = j%10
-            
+
             total_image[(row*dimension):((row+1)*dimension),(column*dimension):((column+1)*dimension)] = c[:][:]
-        
+
         most_used = most_used / 100.
         best_i = find_max(most_used, 0)
         second_best_i = find_max(most_used, 1)
@@ -113,9 +117,9 @@ if __name__ == '__main__':
         text = words[best_i] + ' ' + words[second_best_i] + ' ' + words[third_best_i] + ' ' + words[forth_best_i] + ' ' + words[fifth_best_i] + ' ' + words[sixth_best_i] + ' ' + words[seventh_best_i]
         probs = str(most_used[best_i]) + ' ' + str(most_used[second_best_i]) + ' ' + str(most_used[third_best_i]) + ' ' + str(most_used[forth_best_i]) + ' ' + str(most_used[fifth_best_i]) + ' ' + str(most_used[sixth_best_i]) + ' ' + str(most_used[seventh_best_i])
 
-        most_used = np.float32(np.zeros((y.shape[1])))
+        most_used = np.float64(np.zeros((y.shape[1])))
         print text, probs
 
         sentence = sentence.replace(' ', '-')
 
-        scipy.misc.toimage(total_image, cmin=0.0, cmax=1.0).save("./%s-%03d.png" % (sentence, i))
+        scipy.misc.toimage(total_image, cmin=0.0, cmax=1.0).save("evaluate/%s-%03d.png" % (sentence, i))

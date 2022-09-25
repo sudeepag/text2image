@@ -5,10 +5,13 @@ import theano
 import theano.tensor as T
 import numpy as np
 
+import matplotlib as mpl
+mpl.use('TkAgg')
+
 if theano.config.device == 'cpu':
     from theano.tensor.shared_randomstreams import RandomStreams
 else:
-    from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams 
+    from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 from util import shared_zeros, shared_normal, shared_normal_vector
 from attention import SelectiveAttentionModel
@@ -23,12 +26,18 @@ from random import randint
 create_captions = __import__('create-captions')
 create_mnist_captions_dataset = create_captions.create_mnist_captions_dataset
 
+theano.config.floatX = 'float64'
+theano.config.scan.allow_gc = True
+theano.config.allow_gc = True
+# theano.config.warn_float64 = 'raise'
+
 assert(theano.config.scan.allow_gc == True), "set scan.allow_gc to True ; otherwise you will run out of gpu memory"
 assert(theano.config.allow_gc == True), "set allow_gc to True ; otherwise you will run out of gpu memory"
 
 sys.stdout.flush()
 
 floatX = theano.config.floatX
+print("floatX", floatX)
 
 np.random.seed(np.random.randint(1 << 30))
 rng = RandomStreams(seed=np.random.randint(1 << 30))
@@ -43,8 +52,8 @@ def load_weights(path):
     params = [0 for i in xrange(len(params_names))]
 
     for i in xrange(len(params)):
-        params[i] = theano.shared(np.copy(h5py.File(path, 'r')[params_names[i]]))
-
+        params[i] = theano.shared(np.copy(h5py.File(path, 'r')[params_names[i]]).astype(floatX))
+    # print("DEBUG!:", params)
     return params
 
 def create_lstm_weights(dimReadAttent, dimWriteAttent, dimRNNEnc, dimRNNDec, dimZ):
@@ -148,16 +157,17 @@ def build_lang_encoder_and_attention_vae_decoder(dimY, dimLangRNN, dimAlign, dim
 
         return [h_t, cell_t]
 
+    # print("DEBUGGG:", h0_lang.dtype, cell0_lang.dtype)
     (h_t_forward, _), updates_forward_lstm = theano.scan(lambda y_t, h_tm1, cell_tm1, W_y_h, W_h_h, b_h: recurrence_lang(y_t, h_tm1, cell_tm1, W_y_h, W_h_h, b_h),
                                                         sequences=y.T, outputs_info=[h0_lang, cell0_lang], non_sequences=[W_y_hLangEnc, W_hLangEnc_hLangEnc, b_hLangEnc])
 
     (h_t_backward, _), updates_backward_lstm = theano.scan(lambda y_t, h_tm1, cell_tm1, W_y_h, W_h_h, b_h: recurrence_lang(y_t, h_tm1, cell_tm1, W_y_h, W_h_h, b_h),
                                                         sequences=y_reverse.T, outputs_info=[h0_lang, cell0_lang], non_sequences=[W_yRev_hLangEncRev, W_hLangEncRev_hLangEncRev, b_hLangEncRev])
 
-    
+
     # h_t_forward is sentence_length x batch_size x dimLangRNN (example 6 x 100 x 128)
     h_t_lang = T.concatenate([h_t_forward, h_t_backward], axis=2) # was -1
-    hid_align = h_t_lang.dimshuffle([0,1,2,'x']) * W_lang_align.dimshuffle(['x','x',0,1])      
+    hid_align = h_t_lang.dimshuffle([0,1,2,'x']) * W_lang_align.dimshuffle(['x','x',0,1])
     hid_align = hid_align.sum(axis=2) # sentence_length x batch_size x dimAlign # was -2
 
     read_attention_model = SelectiveAttentionModel(height, width, dimReadAttent)
@@ -171,12 +181,12 @@ def build_lang_encoder_and_attention_vae_decoder(dimY, dimLangRNN, dimAlign, dim
         # Step 2
         read_attent_params = T.dot(h_tm1_dec, W_hdec_read_attent) + b_read_attent # dimension batch_size x 5
         g_y_read, g_x_read, delta_read, sigma_read, gamma_read = read_attention_model.matrix2att(read_attent_params)
-        
+
         x_read = read_attention_model.read(x, g_y_read, g_x_read, delta_read, sigma_read)
         x_t_hat_read = read_attention_model.read(x_t_hat, g_y_read, g_x_read, delta_read, sigma_read)
 
         r_t = gamma_read * T.concatenate([x_read, x_t_hat_read], axis=1)
-            
+
         # Step 3
 
         # Step new calculate alignments
@@ -216,7 +226,7 @@ def build_lang_encoder_and_attention_vae_decoder(dimY, dimLangRNN, dimAlign, dim
         o_t_dec = T.nnet.sigmoid(lstm_t_dec[:, 3*dimRNNDec:4*dimRNNDec])
         h_t_dec = o_t_dec * T.tanh(cell_t_dec)
 
-        # mu and logsigma depend on the activations of the hidden states of the decoder 
+        # mu and logsigma depend on the activations of the hidden states of the decoder
         mu_and_logsigma_prior_t = T.tanh(T.dot(h_t_dec, W_hdec_mu_and_logsigma_prior) + b_mu_and_logsigma_prior)
         mu_prior_t = mu_and_logsigma_prior_t[:, 0:dimZ]
         log_sigma_prior_t = mu_and_logsigma_prior_t[:, dimZ:2*dimZ]
@@ -291,11 +301,11 @@ def build_lang_encoder_and_attention_vae_decoder(dimY, dimLangRNN, dimAlign, dim
     kl_final = 0.5 * kl_t[-1]
     logpxz = T.nnet.binary_crossentropy(c_t_final,x).sum()
     log_likelihood = kl_final + logpxz
-    
+
     log_likelihood = log_likelihood.sum() / y.shape[0]
     kl_final = kl_final.sum() / y.shape[0]
     logpxz = logpxz.sum() / y.shape[0]
-
+    # print("DEBUG:", kl_final, logpxz, log_likelihood, c_t, c_t_gener, x, y, run_steps, updates_train, updates_gener, read_attent_params, write_attent_params, write_attent_params_gener, alphas_gener, params, mu_prior_t_gener, log_sigma_prior_t_gener)
     return [kl_final, logpxz, log_likelihood, c_t, c_t_gener, x, y, run_steps, updates_train, updates_gener, read_attent_params, write_attent_params, write_attent_params_gener, alphas_gener, params, mu_prior_t_gener, log_sigma_prior_t_gener]
 
 class ReccurentAttentionVAE():
@@ -316,7 +326,7 @@ class ReccurentAttentionVAE():
         self.pathToWeights = pathToWeights
 
         self.inputData = inputData
-        self.inputLabels = inputLabels  
+        self.inputLabels = inputLabels
 
         self.banned = [randint(0,10) for i in xrange(12)]
 
@@ -334,6 +344,7 @@ class ReccurentAttentionVAE():
         del inputImages
         del inputCaptions
 
+        # Remove line for training
         if valData != None:
             valImages, valCaptions, valCounts = create_mnist_captions_dataset(valData, valLabels, self.banned)
             print 'Val Dataset'
@@ -350,7 +361,7 @@ class ReccurentAttentionVAE():
     def _build_sample_from_prior_function(self):
         print 'building sample from prior function'
         t1 = datetime.datetime.now()
-        self._sample_from_prior = theano.function(inputs=[self._run_steps, self._y], 
+        self._sample_from_prior = theano.function(inputs=[self._run_steps, self._y],
                                                     outputs=[self._c_ts_gener, self._write_attent_params_gener, self._alphas_gener, self._mu_prior_t_gener, self._log_sigma_prior_t_gener],
                                                     updates=self._updates_gener)
         t2 = datetime.datetime.now()
@@ -359,7 +370,7 @@ class ReccurentAttentionVAE():
     def _build_sample_from_input_function(self):
         print 'building sample from input function'
         t1 = datetime.datetime.now()
-        self._sample_from_input = theano.function(inputs=[self._x, self._run_steps, self._y], 
+        self._sample_from_input = theano.function(inputs=[self._x, self._run_steps, self._y],
                                                     outputs=[self._c_ts, self._write_attent_params],
                                                     updates=self._updates_train)
         t2 = datetime.datetime.now()
@@ -374,7 +385,7 @@ class ReccurentAttentionVAE():
 
         self._index_im_val = T.vector(dtype='int32') # index to the minibatch
         self._index_cap_val = T.vector(dtype='int32')
-        self._validate_function = theano.function(inputs=[self._index_im_val, self._index_cap_val, self._run_steps], 
+        self._validate_function = theano.function(inputs=[self._index_im_val, self._index_cap_val, self._run_steps],
                                                 outputs=[self._kl_final, self._logpxz, self._log_likelihood],
                                                 updates=self._updates_train,
                                                 givens={
@@ -406,7 +417,7 @@ class ReccurentAttentionVAE():
 
         self._updates_train_and_params = OrderedDict()
         self._updates_train_and_params.update(self._updates_train)
-        
+
         for param, param_his, grad in zip(self._params, his, gradients):
             l2_norm_grad = T.sqrt(T.sqr(grad).sum())
             multiplier = T.switch(l2_norm_grad < threshold, 1, threshold / l2_norm_grad)
@@ -416,10 +427,12 @@ class ReccurentAttentionVAE():
 
             self._updates_train_and_params[param_his] = param_his_new
             self._updates_train_and_params[param] = param - (self._lr / T.sqrt(param_his_new + 1e-6)) * grad
+        # print("DEBUG: ", self._updates_train_and_params)
 
         print 'building train function'
         t1 = datetime.datetime.now()
-        self._train_function = theano.function(inputs=[self._index_im, self._index_cap, self._lr, self._run_steps], 
+        # print(self.train_captions[0])
+        self._train_function = theano.function(inputs=[self._index_im, self._index_cap, self._lr, self._run_steps],
                                                 outputs=[self._kl_final, self._logpxz, self._log_likelihood, self._c_ts, self._read_attent_params, self._write_attent_params],
                                                 updates=self._updates_train_and_params,
                                                 givens={
@@ -460,7 +473,7 @@ class ReccurentAttentionVAE():
 
     def save_weights(self, path, c_ts, read_attent_params, write_attent_params):
         weights_f = h5py.File(path, 'w')
-        
+
         for i in xrange(len(self._params)):
             dset = weights_f.create_dataset(params_names[i], self._params[i].shape.eval(), dtype='f')
             dset[:] = np.copy(self._params[i].eval())
@@ -487,12 +500,12 @@ class ReccurentAttentionVAE():
 
         for epoch in xrange(0, epochs):
             a = datetime.datetime.now()
-            
+
             for i in xrange(0, self.input_shape[0], self.batch_size):
                 i_vector = np.int32(np.arange(i,i+self.batch_size))
 
                 [kl, logpxz, log_likelihood, c_ts, read_attent_params, write_attent_params] = self._train_function(i_vector, i_vector, lr, self.runSteps)
-                
+
                 kl_total = kl * i_vector.shape[0]
                 logpxz_total = logpxz * i_vector.shape[0]
                 log_likelihood_total = log_likelihood * i_vector.shape[0]
@@ -558,7 +571,7 @@ if __name__ == '__main__':
     dimY = int(model["model"][0]["dimY"])
     dimLangRNN = int(model["model"][0]["dimLangRNN"])
     dimAlign = int(model["model"][0]["dimAlign"])
-    
+
     dimX = int(model["model"][0]["dimX"])
     dimReadAttent = int(model["model"][0]["dimReadAttent"])
     dimWriteAttent = int(model["model"][0]["dimWriteAttent"])
@@ -590,7 +603,7 @@ if __name__ == '__main__':
         train_data_file = model["data"]["train_data"]["file"]
         train_labels_key = model["data"]["train_labels"]["key"]
         train_labels_file = model["data"]["train_labels"]["file"]
-        
+
         val_data_key = model["data"]["validation_data"]["key"]
         val_data_file = model["data"]["validation_data"]["file"]
         val_labels_key = model["data"]["validation_labels"]["key"]
@@ -603,7 +616,7 @@ if __name__ == '__main__':
 
     train_data = np.copy(h5py.File(train_data_file, 'r')[train_data_key])
     train_labels = np.copy(h5py.File(train_labels_file, 'r')[train_labels_key])
-    
+
     val_data = np.copy(h5py.File(val_data_file, 'r')[val_data_key])
     val_labels = np.copy(h5py.File(val_labels_file, 'r')[val_labels_key])
 
@@ -612,7 +625,7 @@ if __name__ == '__main__':
     savedir = None
     if "savedir" in model:
         savedir = model["savedir"]
+    print("Saving weights? ", save, savedir)
 
     rvae = ReccurentAttentionVAE(dimY, dimLangRNN, dimAlign, dimX, dimReadAttent, dimWriteAttent, dimRNNEnc, dimRNNDec, dimZ, runSteps, batch_size, reduceLRAfter, train_data, train_labels, valData=val_data, valLabels=val_labels, pathToWeights=pathToWeights)
     rvae.train(lr, epochs, save=save, savedir=savedir, validateAfter=validateAfter)
-
